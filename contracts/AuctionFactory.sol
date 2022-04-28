@@ -77,7 +77,7 @@ contract AuctionFactory is ReentrancyGuard {
         );
     }
 
-    function withdraw(uint _auctionId) public {
+    function withdraw(uint _auctionId) public nonReentrant{
         Auction storage auction = auctions[_auctionId];
         require(msg.sender != auction.highestBidder, "Your funds are locked!");
 
@@ -129,7 +129,7 @@ contract AuctionFactory is ReentrancyGuard {
         return true;
     }
 
-    function resolve(uint _auctionId) public {
+    function resolve(uint _auctionId) public nonReentrant{
         Auction storage auction = auctions[_auctionId];
         require(auction.state == State.Started && block.timestamp >= auction.expiresAt, "Auction was not started.");
 
