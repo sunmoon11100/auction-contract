@@ -27,8 +27,8 @@ contract AuctionFactory is ReentrancyGuard {
         address highestBidder;
     }
 
-    mapping(uint => Auction) private auctions;
-    mapping(uint => mapping(address => uint)) private balanceOfs;
+    mapping(uint => Auction) public auctions;
+    mapping(uint => mapping(address => uint)) public balanceOf;
 
     event AuctionCreated(
         uint auctionId,
@@ -65,7 +65,7 @@ contract AuctionFactory is ReentrancyGuard {
         auction.reservePrice = _reservePrice;
         auction.bidIncrement = _bidIncrement;
         //for the first time to compare with highestBid
-        balanceOfs[auctionId][address(0)] = _reservePrice;
+        balanceOf[auctionId][address(0)] = _reservePrice;
 
         emit AuctionCreated(
             auctionId,
@@ -81,9 +81,9 @@ contract AuctionFactory is ReentrancyGuard {
         Auction storage auction = auctions[_auctionId];
         require(msg.sender != auction.highestBidder, "Your funds are locked!");
 
-        uint amount = balanceOfs[_auctionId][msg.sender];
+        uint amount = balanceOf[_auctionId][msg.sender];
         if (amount > 0) {
-            balanceOfs[_auctionId][msg.sender] = 0;
+            balanceOf[_auctionId][msg.sender] = 0;
             payable(msg.sender).transfer(amount);
         }
     }
@@ -96,8 +96,8 @@ contract AuctionFactory is ReentrancyGuard {
         Auction storage auction = auctions[_auctionId];
         require(auction.state != State.Canceled);
         require(auction.seller != payable(msg.sender));
-        uint newBid = balanceOfs[_auctionId][msg.sender] + msg.value;
-        uint highestBid = balanceOfs[_auctionId][auction.highestBidder];
+        uint newBid = balanceOf[_auctionId][msg.sender] + msg.value;
+        uint highestBid = balanceOf[_auctionId][auction.highestBidder];
 
         if (auction.state == State.Created) {
             auction.state = State.Started;
@@ -121,7 +121,7 @@ contract AuctionFactory is ReentrancyGuard {
         require(newBid >= highestBid + (highestBid * auction.bidIncrement) / 100, "Insufficient fund");
         require(auction.startAt <= block.timestamp && block.timestamp <= auction.expiresAt);
 
-        balanceOfs[_auctionId][msg.sender] = newBid;
+        balanceOf[_auctionId][msg.sender] = newBid;
         if (msg.sender != auction.highestBidder) {
             auction.highestBidder = msg.sender;
         }
@@ -137,8 +137,8 @@ contract AuctionFactory is ReentrancyGuard {
         nft.transferFrom(address(this), auction.highestBidder, auction.tokenId);
 
         // transfer ether balance to seller
-        balanceOfs[_auctionId][auction.seller] += balanceOfs[_auctionId][auction.highestBidder];
-        balanceOfs[_auctionId][auction.highestBidder] = 0;
+        balanceOf[_auctionId][auction.seller] += balanceOf[_auctionId][auction.highestBidder];
+        balanceOf[_auctionId][auction.highestBidder] = 0;
 
         auction.highestBidder = address(0);
         auction.state = State.Resolved;
@@ -154,15 +154,6 @@ contract AuctionFactory is ReentrancyGuard {
         auction.state = State.Canceled;
         emit AuctionCanceled(_auctionId);
         return true;
-    }
-
-    function balanceOf(uint _auctionId, address bidder) public view returns (uint){
-        return balanceOfs[_auctionId][bidder];
-    }
-
-    function fetchAuction(uint _auctionId) public view returns (Auction memory){
-        Auction storage currentAuction = auctions[_auctionId];
-        return currentAuction;
     }
 
     /* Returns only auctions that a user has created */

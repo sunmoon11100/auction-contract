@@ -11,12 +11,12 @@ describe("AuctionFactory", function () {
   let user1: Signer;
   let user2: Signer;
 
-  enum State {
-    Created,
-    Started,
-    Canceled,
-    Resolved,
-  }
+  const State = {
+    Created: 0,
+    Started: 1,
+    Canceled: 2,
+    Resolved: 3,
+  };
 
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
@@ -76,7 +76,7 @@ describe("AuctionFactory", function () {
       .connect(user1)
       .bid(auctions[0].auctionId, { value: ethers.utils.parseEther("1") });
     expect(
-      (await auctionFactory.fetchAuction(auctions[0].auctionId)).state
+      (await auctionFactory.auctions(auctions[0].auctionId)).state
     ).to.equal(State.Started);
     expect(
       await auctionFactory.balanceOf(
@@ -95,7 +95,7 @@ describe("AuctionFactory", function () {
       .connect(user2)
       .bid(auctions[0].auctionId, { value: ethers.utils.parseEther("1.05") });
     expect(
-      (await auctionFactory.fetchAuction(auctions[0].auctionId)).highestBidder
+      (await auctionFactory.auctions(auctions[0].auctionId)).highestBidder
     ).to.equal(await user2.getAddress());
   });
 
@@ -140,7 +140,7 @@ describe("AuctionFactory", function () {
     );
     await auctionFactory.connect(user2).resolve(auctions[0].auctionId);
     expect(
-      (await auctionFactory.fetchAuction(auctions[0].auctionId)).state
+      (await auctionFactory.auctions(auctions[0].auctionId)).state
     ).to.equal(State.Resolved);
     expect(await nft.balanceOf(await user2.getAddress())).to.equal(
       BigNumber.from(1)
@@ -171,7 +171,7 @@ describe("AuctionFactory", function () {
     );
     await auctionFactory.connect(user1).cancelAuction(newAuctions[0].auctionId);
     expect(
-      (await auctionFactory.fetchAuction(newAuctions[0].auctionId)).state
+      (await auctionFactory.auctions(newAuctions[0].auctionId)).state
     ).to.equal(State.Canceled);
   });
   it("Should create auction test.", async () => {
