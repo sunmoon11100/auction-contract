@@ -28,7 +28,7 @@ describe("AuctionFactory", function () {
     await nft.safeMint(await owner.getAddress());
     await nft.safeMint(await user1.getAddress());
     auctionFactory = await AuctionFactoryToken.deploy(nft.address);
-    await auctionFactory.createAuction(
+    await auctionFactory.create(
       0,
       3, // 3s
       ethers.utils.parseEther("1"),
@@ -43,9 +43,7 @@ describe("AuctionFactory", function () {
 
     // This test expects the seller variable stored in the contract to be equal
     // to our Signer's owner.
-    const auctions = await auctionFactory.fetchAuctions(
-      await owner.getAddress()
-    );
+    const auctions = await auctionFactory.fetch(await owner.getAddress());
     expect(auctions[0].seller).to.equal(await owner.getAddress());
     expect(
       await auctionFactory.balanceOf(
@@ -56,9 +54,7 @@ describe("AuctionFactory", function () {
   });
 
   it("Should bid test.", async () => {
-    const auctions = await auctionFactory.fetchAuctions(
-      await owner.getAddress()
-    );
+    const auctions = await auctionFactory.fetch(await owner.getAddress());
     // Checking first bid
     expect(auctions[0].state).to.equal(State.Created);
     await expect(
@@ -100,9 +96,7 @@ describe("AuctionFactory", function () {
   });
 
   it("Should withdraw test.", async () => {
-    const auctions = await auctionFactory.fetchAuctions(
-      await owner.getAddress()
-    );
+    const auctions = await auctionFactory.fetch(await owner.getAddress());
     await auctionFactory
       .connect(user1)
       .bid(auctions[0].auctionId, { value: ethers.utils.parseEther("1") });
@@ -122,9 +116,7 @@ describe("AuctionFactory", function () {
   });
 
   it("Should resolve test.", async () => {
-    const auctions = await auctionFactory.fetchAuctions(
-      await owner.getAddress()
-    );
+    const auctions = await auctionFactory.fetch(await owner.getAddress());
     await expect(
       auctionFactory.resolve(auctions[0].auctionId)
     ).to.be.revertedWith("Auction was not started.");
@@ -147,36 +139,32 @@ describe("AuctionFactory", function () {
     );
   });
   it("Should cancel test.", async () => {
-    const auctions = await auctionFactory.fetchAuctions(
-      await owner.getAddress()
-    );
+    const auctions = await auctionFactory.fetch(await owner.getAddress());
     await expect(
-      auctionFactory.connect(user1).cancelAuction(auctions[0].auctionId)
+      auctionFactory.connect(user1).cancel(auctions[0].auctionId)
     ).to.be.revertedWith("You are not a seller.");
     await auctionFactory
       .connect(user1)
       .bid(auctions[0].auctionId, { value: ethers.utils.parseEther("1") });
     await expect(
-      auctionFactory.cancelAuction(auctions[0].auctionId)
+      auctionFactory.cancel(auctions[0].auctionId)
     ).to.be.revertedWith("You can't cancel this auction.");
 
-    await auctionFactory.connect(user1).createAuction(
+    await auctionFactory.connect(user1).create(
       1,
       3, // 3s
       ethers.utils.parseEther("1"),
       5 // 5%
     );
-    const newAuctions = await auctionFactory.fetchAuctions(
-      await user1.getAddress()
-    );
-    await auctionFactory.connect(user1).cancelAuction(newAuctions[0].auctionId);
+    const newAuctions = await auctionFactory.fetch(await user1.getAddress());
+    await auctionFactory.connect(user1).cancel(newAuctions[0].auctionId);
     expect(
       (await auctionFactory.auctions(newAuctions[0].auctionId)).state
     ).to.equal(State.Canceled);
   });
   it("Should create auction test.", async () => {
     await expect(
-      auctionFactory.connect(user2).createAuction(
+      auctionFactory.connect(user2).create(
         1,
         3, // 3s
         ethers.utils.parseEther("1"),

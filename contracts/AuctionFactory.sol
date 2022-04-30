@@ -15,25 +15,25 @@ contract AuctionFactory is ReentrancyGuard {
     enum State {Created, Started, Canceled, Resolved}
 
     struct Auction {
-        uint auctionId;
+        uint32 duration;
+        uint32 startAt;
+        uint32 expiresAt;
         address payable seller;
-        uint tokenId;
-        uint duration;
-        uint reservePrice;
-        uint bidIncrement;
-        State state;
-        uint startAt;
-        uint expiresAt;
         address highestBidder;
+        uint96 auctionId;
+        uint96 reservePrice;
+        uint96 tokenId;
+        uint8 bidIncrement;
+        State state;
     }
 
-    mapping(uint => Auction) public auctions;
-    mapping(uint => mapping(address => uint)) public balanceOf;
+    mapping(uint96 => Auction) public auctions;
+    mapping(uint96 => mapping(address => uint96)) public balanceOf;
 
     event AuctionCreated(
-        uint auctionId,
-        address payable seller,
-        uint tokenId,
+        uint indexed auctionId,
+        address payable indexed seller,
+        uint indexed tokenId,
         uint duration,
         uint reservePrice,
         uint bidIncrement
@@ -47,15 +47,15 @@ contract AuctionFactory is ReentrancyGuard {
         nft = IERC721(_nft);
     }
 
-    function createAuction(
-        uint _tokenId,
-        uint _duration,
-        uint _reservePrice,
-        uint _bidIncrement
-    ) public payable nonReentrant {
-        require(nft.ownerOf(_tokenId)==msg.sender, "You have no this token.");
+    function create(
+        uint96 _tokenId,
+        uint32 _duration,
+        uint96 _reservePrice,
+        uint8 _bidIncrement
+    ) external payable nonReentrant {
+        require(nft.ownerOf(_tokenId) == msg.sender, "You have no this token.");
         _auctionIds.increment();
-        uint auctionId = _auctionIds.current();
+        uint96 auctionId = uint96(_auctionIds.current());
 
         Auction storage auction = auctions[auctionId];
         auction.auctionId = auctionId;
@@ -77,8 +77,8 @@ contract AuctionFactory is ReentrancyGuard {
         );
     }
 
-    function withdraw(uint _auctionId) public nonReentrant{
-        Auction storage auction = auctions[_auctionId];
+    function withdraw(uint96 _auctionId) external nonReentrant {
+        Auction memory auction = auctions[_auctionId];
         require(msg.sender != auction.highestBidder, "Your funds are locked!");
 
         uint amount = balanceOf[_auctionId][msg.sender];
@@ -88,23 +88,21 @@ contract AuctionFactory is ReentrancyGuard {
         }
     }
 
-    function bid(uint _auctionId) public
-    payable
-    nonReentrant
-    returns (bool success)
+    function bid(uint96 _auctionId) external payable nonReentrant returns (bool success)
     {
         Auction storage auction = auctions[_auctionId];
         require(auction.state != State.Canceled);
         require(auction.seller != payable(msg.sender));
-        uint newBid = balanceOf[_auctionId][msg.sender] + msg.value;
-        uint highestBid = balanceOf[_auctionId][auction.highestBidder];
+        uint96 newBid = balanceOf[_auctionId][msg.sender] + uint96(msg.value);
+        uint96 highestBid = balanceOf[_auctionId][auction.highestBidder];
+        uint32 timestamp = uint32(block.timestamp);
 
         if (auction.state == State.Created) {
             auction.state = State.Started;
             emit AuctionStarted(_auctionId);
 
-            auction.startAt = block.timestamp;
-            auction.expiresAt = block.timestamp + auction.duration;
+            auction.startAt = timestamp;
+            auction.expiresAt = timestamp + auction.duration;
 
             //lock seller's NFT until it's finished or cancelled.
             IERC721(nft).transferFrom(auction.seller, address(this), auction.tokenId);
@@ -119,7 +117,7 @@ contract AuctionFactory is ReentrancyGuard {
         // function execution including
         // it having received the money).
         require(newBid >= highestBid + (highestBid * auction.bidIncrement) / 100, "Insufficient fund");
-        require(auction.startAt <= block.timestamp && block.timestamp <= auction.expiresAt);
+        require(auction.startAt <= timestamp && timestamp <= auction.expiresAt);
 
         balanceOf[_auctionId][msg.sender] = newBid;
         if (msg.sender != auction.highestBidder) {
@@ -129,7 +127,7 @@ contract AuctionFactory is ReentrancyGuard {
         return true;
     }
 
-    function resolve(uint _auctionId) public nonReentrant{
+    function resolve(uint96 _auctionId) external nonReentrant {
         Auction storage auction = auctions[_auctionId];
         require(auction.state == State.Started && block.timestamp >= auction.expiresAt, "Auction was not started.");
 
@@ -145,8 +143,7 @@ contract AuctionFactory is ReentrancyGuard {
         emit AuctionResolved(_auctionId);
     }
 
-    function cancelAuction(uint _auctionId) public
-    returns (bool success)
+    function cancel(uint96 _auctionId) external returns (bool success)
     {
         Auction storage auction = auctions[_auctionId];
         require(payable(msg.sender) == auction.seller, "You are not a seller.");
@@ -157,19 +154,19 @@ contract AuctionFactory is ReentrancyGuard {
     }
 
     /* Returns only auctions that a user has created */
-    function fetchAuctions(address _seller) public view returns (Auction[] memory) {
+    function fetch(address _seller) external view returns (Auction[] memory) {
         uint totalAuctionCount = _auctionIds.current();
         uint auctionCount = 0;
         uint currentIndex = 0;
 
-        for (uint i = 0; i < totalAuctionCount; i++) {
+        for (uint96 i = 0; i < totalAuctionCount; i++) {
             if (_seller == address(0) || auctions[i + 1].seller == payable(_seller)) {
                 auctionCount += 1;
             }
         }
 
         Auction[] memory _auctions = new Auction[](auctionCount);
-        for (uint i = 0; i < totalAuctionCount; i++) {
+        for (uint96 i = 0; i < totalAuctionCount; i++) {
             if (_seller == address(0) || auctions[i + 1].seller == payable(_seller)) {
                 Auction storage currentAuction = auctions[i + 1];
                 _auctions[currentIndex] = currentAuction;
