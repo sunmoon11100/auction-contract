@@ -93,6 +93,26 @@ describe("AuctionFactory", function () {
     expect(
       (await auctionFactory.auctions(auctions[0].auctionId)).highestBidder
     ).to.equal(await user2.getAddress());
+
+    await auctionFactory
+      .connect(user2)
+      .bid(auctions[0].auctionId, { value: ethers.utils.parseEther("1.2") });
+    expect(
+      (await auctionFactory.auctions(auctions[0].auctionId)).highestBidder
+    ).to.equal(await user2.getAddress());
+
+    await expect(
+      auctionFactory.bid(auctions[0].auctionId, {
+        value: ethers.utils.parseEther("1.2"),
+      })
+    ).to.be.reverted;
+
+    await delay(3000);
+    await expect(
+      auctionFactory
+        .connect(user2)
+        .bid(auctions[0].auctionId, { value: ethers.utils.parseEther("1.5") })
+    ).to.be.reverted;
   });
 
   it("Should withdraw test.", async () => {
@@ -113,6 +133,7 @@ describe("AuctionFactory", function () {
         await user1.getAddress()
       )
     ).to.equal(BigNumber.from(0));
+    await auctionFactory.connect(user1).withdraw(0);
   });
 
   it("Should resolve test.", async () => {
@@ -126,7 +147,7 @@ describe("AuctionFactory", function () {
     await auctionFactory
       .connect(user2)
       .bid(auctions[0].auctionId, { value: ethers.utils.parseEther("1.05") });
-    await delay(4000);
+    await delay(3000);
     expect(await nft.balanceOf(await user2.getAddress())).to.equal(
       BigNumber.from(0)
     );
@@ -161,6 +182,12 @@ describe("AuctionFactory", function () {
     expect(
       (await auctionFactory.auctions(newAuctions[0].auctionId)).state
     ).to.equal(State.Canceled);
+
+    await expect(
+      auctionFactory
+        .connect(user2)
+        .bid(newAuctions[0].auctionId, { value: ethers.utils.parseEther("1") })
+    ).to.be.reverted;
   });
   it("Should create auction test.", async () => {
     await expect(
